@@ -4,7 +4,7 @@ import task from "./../../assets/images/task.png";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseCilents";
-import { firestore } from "@/lib/firebaseConfig";
+import { firestore } from "../../lib/firebaseConfig";
 import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 
 //สร้างประเภทข้อมูลแบบ Task
@@ -28,6 +28,7 @@ export default function Page() {
       try {
         // ดึงข้อมูลจาก Firestore
         const data = await getDocs(collection(firestore, "task_cl"));
+
         // เอาข้อมูลที่ดึงมากำหนดลงใน state
         setTasks(
           data.docs.map((doc) => ({
@@ -70,7 +71,7 @@ export default function Page() {
           Manage Task App
         </h1>
         <h1 className="mt-5 text-2xl text-gray-400">บริการจัดการงานที่ทำ</h1>
-        
+
 
         <div className="flex justify-end w-9/12">
           <Link
