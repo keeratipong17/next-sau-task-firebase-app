@@ -2,7 +2,7 @@
 import Image from "next/image";
 import task from "./../../assets/images/task.png";
 import Link from "next/link";
-import { supabase} from "./../../lib/supabaseClient";
+import { supabase} from "./../../lib/supabaseCilents";
 import { useState } from "react";
  
 export default function Page() {
@@ -89,7 +89,7 @@ export default function Page() {
         <Image className="mt-20" src={task} alt="Task" width={120} />
  
         <h1 className="mt-8 text-2xl font-bold text-blue-700">
-          My George Task App
+          Manage Task App
         </h1>
  
         <h1 className="mt-2 text-lg text-blue-700">บริการจัดการงานที่ทำ</h1>

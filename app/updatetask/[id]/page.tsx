@@ -1,12 +1,14 @@
 "use client";
-
 import Image from "next/image";
-import task from "../../../assets/images/task.png";
+import task from "./../../assets/images/task.png";
 import Link from "next/link";
-
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import Footer from "@/components/Footer";
+import { supabase } from "../../../lib/supabaseCilents";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { firestore } from "@/lib/firebaseConfig";
+import { collection, getDoc, updateDoc, doc } from "firebase/firestore";
+
 
 export default function Page() {
   // สร้างตัวแปรเก็บ id ที่ส่งมา
@@ -19,25 +21,25 @@ export default function Page() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data, error } = await supabase
-        .from("task_tb")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) {
-        alert("เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
-        console.log(error.message);
-        return;
+      // ดึงข้อมูลงานจาก Firestore ตาม id ที่ส่งมา
+
+      try {
+        const docFetch = await getDoc(
+          doc(firestore, "task_cl", id as string)
+        );
+
+        setTitle(docFetch.data()?.title || "");
+        setDetail(docFetch.data()?.detail || "");
+        setImagePreview(docFetch.data()?.image_url || "");
+        setCompleted(docFetch.data()?.is_completed || false);
+      } catch (error) {
+        console.error("Error fetching task:", error);
+        alert("เกิดข้อผิดพลาดในการดึงข้อมูลงาน กรุณาลองใหม่อีกครั้ง");
       }
-      // กรณีไม่พบ error  เอาข้อมูลไปกำหนด State
-      setTitle(data.title);
-      setDetail(data.detail);
-      setCompleted(data.is_completed);
-      setImagePreview(data.image_url);
     }
 
-    fetchData();
-  }, []);
+    fetchData(); // อย่าลืมเรียกฟังก์ชัน
+  }, [id]);
 
   const handleSelectImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -48,59 +50,59 @@ export default function Page() {
   };
 
   const handleUploadAndUpdate = async (
-    evnet: React.FormEvent<HTMLFormElement>
+    event: React.FormEvent<HTMLFormElement>
   ) => {
-    event?.preventDefault();
-    // Validate
-    if (title.trim() == "" || detail.trim() == "") {
+    event.preventDefault(); // ป้องกันการรีเฟรชหน้า
+    // validate input fields
+    if (title.trim() === "" || detail.trim() === "") {
+      alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+      return;
     }
 
-    // ตัวแปร Image_Url
-    let imageUrl = "";
+    let imageUrl = imagePreview || "";
 
-    // อัปโหลด
+    // Upload รูปไปที่ Supabase Storage
+    // validate image file
     if (imageFile) {
-      // สร้างชื่อไฟล์ใหม่ไม่ให้ซ้ำกัน
+      // สร้างชื่อไฟล์ใหม่เพื่อป้องกันชื่อซ้ำ
       const newFileName = `${Date.now()}_${imageFile.name}`;
-      // อัปโหลดไฟล์เก็บใน Supabase Storage
+
+      // บันทึกข้อมูล image_url ลงในตาราง task_tb
       const { data, error } = await supabase.storage
-        .from("task_bk")
-        .upload(newFileName, imageFile);
+        .from("task_bk") // ชื่อ bucket
+        .upload(newFileName, imageFile); // ชื่อไฟล์ และ ไฟล์ที่อัปโหลด
+
       if (error) {
-        alert("เกิดข้อผิดพลาดในการอัปโหลด");
-        console.log(error.message);
+        alert("เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ กรุณาลองใหม่อีกครั้ง");
+        console.error("Error uploading image:", error.message);
         return;
       } else {
-        // เอา Image Url
-        const { data } = await supabase.storage
-          .from("task_bk")
-          .getPublicUrl(newFileName);
+        // ถ้าอัปโหลดสำเร็จเอา Image Url มาเพื่อบันทึกในตาราง
+        const { data } = supabase.storage
+          .from("task_bk") // ชื่อ bucket
+          .getPublicUrl(newFileName); // ชื่อไฟล์ที่อัปโหลด
 
         imageUrl = data.publicUrl;
       }
     }
+    // อัพเดทข้อมูลงานใน Firebase
 
-    // บันทึกแก้ไขงานลง task_tb ใน supabase
-    const { data, error } = await supabase
-      .from("task_tb")
-      .update({
+    try {
+      await updateDoc(doc(firestore, "task_cl", id as string), {
         title: title,
         detail: detail,
         image_url: imageUrl,
         is_completed: isCompleted,
-        update_at: new Date().toISOString(),
-      })
-      .eq("id", id);
+      });
 
-    if (error) {
-      alert("เกิดข้อผิดพลาดในการบันทึกแก้ไขข้อมูล กรุณาลองใหม่อีกครั้ง");
-      console.log(error.message);
-      return;
+      alert("แก้ไขงานเรียบร้อยแล้ว");
+      window.location.href = "/alltask";
+    } 
+    catch (error) {
+      alert("เกิดข้อผิดพลาดในการแก้ไขงาน กรุณาลองใหม่อีกครั้ง");
+      console.error("Error saving new task:", error);
+      throw error;
     }
-
-    alert("บันทึกแก้ไขข้อมูลเรียบร้อยแล้ว");
-
-    window.location.href = "/alltask";
   };
 
   return (
